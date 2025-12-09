@@ -3,6 +3,8 @@ package com.gkfcsolution.filedemouploaddownload.services.impl;
 import com.gkfcsolution.filedemouploaddownload.services.FileService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
@@ -25,23 +27,36 @@ public class FileServiceImpl implements FileService {
 
     @Autowired
     private ResourceLoader resourceLoader;
+
+    @Value("${project.upload.dir}")
+    private String uploadDir;
+
     @Override
     public void uploadFile(MultipartFile uploadFile) throws IOException {
-        File file = new File(resourceLoader.getResource("classpath:store/").getFile() + "/" + uploadFile.getOriginalFilename());
 
-        if (file.createNewFile()){
-            log.info("File is created ! {}", file.getAbsolutePath() );
-        } else {
-            log.warn("File Already exists.");
+        File folder = new File(uploadDir);
+
+        // Si le dossier n'existe pas, on le crée
+        if (!folder.exists()) {
+            folder.mkdirs();
+            log.info("Upload folder created at {}", folder.getAbsolutePath());
         }
 
-        BufferedOutputStream stream = new BufferedOutputStream(new FileOutputStream(file));
-        stream.write(uploadFile.getBytes());
-        stream.close();
+        File file = new File(folder, uploadFile.getOriginalFilename());
+
+        if (file.exists()) {
+            log.warn("File already exists: {}", file.getAbsolutePath());
+        }
+
+        try (BufferedOutputStream stream = new BufferedOutputStream(new FileOutputStream(file))) {
+            stream.write(uploadFile.getBytes());
+        }
+
+        log.info("File saved successfully: {}", file.getAbsolutePath());
     }
 
     @Override
     public Resource downloadFile(String filename) {
-        return resourceLoader.getResource("classpath:store/" + filename);
+        return new FileSystemResource(uploadDir + "/" + filename);
     }
 }
